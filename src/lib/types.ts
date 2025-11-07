@@ -52,6 +52,35 @@ export interface ProjectItem {
   details: string[];
 }
 
+export interface CustomStyles {
+  typography: {
+    fontFamily: string;
+    fontSize: {
+      base: number;
+      heading: number;
+      subheading: number;
+    };
+    fontWeight: {
+      normal: number;
+      medium: number;
+      bold: number;
+    };
+  };
+  colors: {
+    primary: string;
+    secondary: string;
+    accent: string;
+    background: string;
+    text: string;
+    textSecondary: string;
+  };
+  layout: {
+    sectionSpacing: number;
+    padding: number;
+    borderRadius: number;
+  };
+}
+
 export interface CVData {
   basicInfo: BasicInfo;
   summary: Summary;
@@ -61,6 +90,7 @@ export interface CVData {
   projects: ProjectItem[];
   activeTheme: ThemeType;
   sectionConfig: SectionConfig;
+  customStyles?: CustomStyles;
 }
 
 export interface SectionConfig {

@@ -1,6 +1,7 @@
 import { CVData, ThemeType } from "@/lib/types";
 import { themes } from "@/lib/themes";
 import { formatDate } from "@/lib/utils";
+import { useState } from "react";
 import {
   Mail,
   MapPin,
@@ -9,14 +10,106 @@ import {
   Github,
   Linkedin,
   Calendar,
+  Edit2,
+  Check,
 } from "lucide-react";
 
 interface PreviewProps {
   data: CVData;
+  onUpdate?: (updatedData: CVData) => void;
 }
 
-export function Preview({ data }: PreviewProps) {
+export function Preview({ data, onUpdate = () => {} }: PreviewProps) {
   const theme = themes[data.activeTheme];
+  const [editingField, setEditingField] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState<string>("");
+
+  // Function to handle clicking on an editable field
+  const handleEditClick = (field: string, value: string) => {
+    setEditingField(field);
+    setEditValue(value);
+  };
+
+  // Function to save changes
+  const handleSave = (field: string, section?: string, index?: number) => {
+    const updatedData = { ...data };
+    
+    // Update the appropriate field based on the path
+    if (section && index !== undefined) {
+      // For array items like experiences, education, etc.
+      const [mainField, subField] = field.split('.');
+      updatedData[section][index][subField] = editValue;
+    } else if (section) {
+      // For nested objects like summary
+      updatedData[section][field] = editValue;
+    } else {
+      // For basic info fields
+      const [mainField, subField] = field.split('.');
+      if (subField) {
+        updatedData[mainField][subField] = editValue;
+      }
+    }
+    
+    onUpdate(updatedData);
+    setEditingField(null);
+  };
+
+  // Editable text component
+  const EditableText = ({ 
+    value, 
+    fieldName, 
+    section, 
+    index,
+    className = "",
+    isHeading = false
+  }) => {
+    const isEditing = editingField === (section && index !== undefined 
+      ? `${section}.${index}.${fieldName}` 
+      : section 
+        ? `${section}.${fieldName}` 
+        : fieldName);
+    
+    if (isEditing) {
+      return (
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            className={`border border-blue-400 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 ${className}`}
+            autoFocus
+          />
+          <button 
+            onClick={() => handleSave(fieldName, section, index)}
+            className="text-green-500 hover:text-green-700"
+          >
+            <Check className="h-4 w-4" />
+          </button>
+        </div>
+      );
+    }
+
+    return (
+      <div 
+        className={`group relative cursor-pointer ${className}`}
+        onClick={() => handleEditClick(
+          section && index !== undefined 
+            ? `${section}.${index}.${fieldName}` 
+            : section 
+              ? `${section}.${fieldName}` 
+              : fieldName, 
+          value
+        )}
+      >
+        {isHeading ? (
+          <h1 className={className}>{value}</h1>
+        ) : (
+          <span>{value}</span>
+        )}
+        <Edit2 className="h-3 w-3 text-blue-500 opacity-0 group-hover:opacity-100 absolute -right-4 top-1/2 transform -translate-y-1/2" />
+      </div>
+    );
+  };
 
   // Use section configuration if available, otherwise use defaults
   const visibility = data.sectionConfig?.visibility || {
@@ -172,7 +265,71 @@ export function Preview({ data }: PreviewProps) {
   const renderContactInfo = () => {
     return (
       <div className="flex flex-wrap gap-3 mt-3 text-sm text-gray-600">
-        {renderContactItems()}
+        {data.basicInfo.location && (
+          <div className="flex items-center gap-1">
+            <MapPin className="h-4 w-4" />
+            <EditableText
+              value={data.basicInfo.location}
+              fieldName="location"
+              section="basicInfo"
+            />
+          </div>
+        )}
+
+        {data.basicInfo.email && (
+          <div className="flex items-center gap-1">
+            <Mail className="h-4 w-4" />
+            <EditableText
+              value={data.basicInfo.email}
+              fieldName="email"
+              section="basicInfo"
+            />
+          </div>
+        )}
+
+        {data.basicInfo.phone && (
+          <div className="flex items-center gap-1">
+            <Phone className="h-4 w-4" />
+            <EditableText
+              value={data.basicInfo.phone}
+              fieldName="phone"
+              section="basicInfo"
+            />
+          </div>
+        )}
+
+        {data.basicInfo.website && (
+          <div className="flex items-center gap-1">
+            <Globe className="h-4 w-4" />
+            <EditableText
+              value={data.basicInfo.website}
+              fieldName="website"
+              section="basicInfo"
+            />
+          </div>
+        )}
+
+        {data.basicInfo.github && (
+          <div className="flex items-center gap-1">
+            <Github className="h-4 w-4" />
+            <EditableText
+              value={data.basicInfo.github}
+              fieldName="github"
+              section="basicInfo"
+            />
+          </div>
+        )}
+
+        {data.basicInfo.linkedin && (
+          <div className="flex items-center gap-1">
+            <Linkedin className="h-4 w-4" />
+            <EditableText
+              value={data.basicInfo.linkedin}
+              fieldName="linkedin"
+              section="basicInfo"
+            />
+          </div>
+        )}
       </div>
     );
   };
@@ -180,12 +337,17 @@ export function Preview({ data }: PreviewProps) {
   const renderStandardHeader = () => {
     return (
       <header className="mb-6">
-        <h1 className={`${theme.headerStyle} ${theme.color}`}>
-          {data.basicInfo.name}
-        </h1>
-        <h2 className="text-lg font-medium text-gray-700 mt-1">
-          {data.basicInfo.role}
-        </h2>
+        <EditableText
+          value={data.basicInfo.name}
+          fieldName="basicInfo.name"
+          className={`${theme.headerStyle} ${theme.color}`}
+          isHeading={true}
+        />
+        <EditableText
+          value={data.basicInfo.role}
+          fieldName="basicInfo.role"
+          className="text-lg font-medium text-gray-700 mt-1"
+        />
         {renderContactInfo()}
       </header>
     );
@@ -231,7 +393,13 @@ export function Preview({ data }: PreviewProps) {
       <section key="summary" className="mb-6 animate-fade-in">
         <h3 className={theme.sectionTitleStyle}>{titles.summary}</h3>
         <div className={theme.sectionContentStyle}>
-          <p>{data.summary.content}</p>
+          <p>
+            <EditableText
+              value={data.summary.content}
+              fieldName="content"
+              section="summary"
+            />
+          </p>
         </div>
       </section>
     );
@@ -245,18 +413,42 @@ export function Preview({ data }: PreviewProps) {
         <h3 className={theme.sectionTitleStyle}>{titles.experiences}</h3>
         <div className={theme.sectionContentStyle}>
           <div className="space-y-4">
-            {data.experiences.map((exp) => (
+            {data.experiences.map((exp, index) => (
               <div key={exp.id} className="cv-experience">
                 <div className="flex justify-between items-start">
                   <div>
-                    <h4 className="font-semibold">{exp.role}</h4>
-                    <div className="text-gray-700">{exp.company}</div>
+                    <EditableText
+                      value={exp.role}
+                      fieldName="role"
+                      section="experiences"
+                      index={index}
+                      className="font-semibold"
+                    />
+                    <EditableText
+                      value={exp.company}
+                      fieldName="company"
+                      section="experiences"
+                      index={index}
+                      className="text-gray-700"
+                    />
                   </div>
                   <div className="flex items-center gap-1 text-sm text-gray-600">
                     <Calendar className="h-3 w-3" />
                     <span>
-                      {formatDate(exp.startDate)} -{" "}
-                      {exp.current ? "Present" : formatDate(exp.endDate)}
+                      <EditableText
+                        value={formatDate(exp.startDate)}
+                        fieldName="startDate"
+                        section="experiences"
+                        index={index}
+                      /> - {" "}
+                      {exp.current ? "Present" : (
+                        <EditableText
+                          value={formatDate(exp.endDate)}
+                          fieldName="endDate"
+                          section="experiences"
+                          index={index}
+                        />
+                      )}
                     </span>
                   </div>
                 </div>
@@ -288,15 +480,32 @@ export function Preview({ data }: PreviewProps) {
         <h3 className={theme.sectionTitleStyle}>{titles.education}</h3>
         <div className={theme.sectionContentStyle}>
           <div className="space-y-4">
-            {data.education.map((edu) => (
+            {data.education.map((edu, index) => (
               <div key={edu.id} className="cv-education">
                 <div className="flex justify-between items-start">
                   <div>
-                    <h4 className="font-semibold">{edu.degree}</h4>
-                    <div className="text-gray-700">{edu.institute}</div>
+                    <EditableText
+                      value={edu.degree}
+                      fieldName="degree"
+                      section="education"
+                      index={index}
+                      className="font-semibold"
+                    />
+                    <EditableText
+                      value={edu.institute}
+                      fieldName="institute"
+                      section="education"
+                      index={index}
+                      className="text-gray-700"
+                    />
                     {edu.location && (
                       <div className="text-sm text-gray-600">
-                        {edu.location}
+                        <EditableText
+                          value={edu.location}
+                          fieldName="location"
+                          section="education"
+                          index={index}
+                        />
                       </div>
                     )}
                   </div>
@@ -304,8 +513,20 @@ export function Preview({ data }: PreviewProps) {
                     <div className="flex items-center gap-1 text-sm text-gray-600">
                       <Calendar className="h-3 w-3" />
                       <span>
-                        {formatDate(edu.startDate)} -{" "}
-                        {edu.current ? "Present" : formatDate(edu.endDate)}
+                        <EditableText
+                          value={formatDate(edu.startDate)}
+                          fieldName="startDate"
+                          section="education"
+                          index={index}
+                        /> - {" "}
+                        {edu.current ? "Present" : (
+                          <EditableText
+                            value={formatDate(edu.endDate)}
+                            fieldName="endDate"
+                            section="education"
+                            index={index}
+                          />
+                        )}
                       </span>
                     </div>
                   )}

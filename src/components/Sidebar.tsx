@@ -16,6 +16,7 @@ import { ConfigurationPanel } from '@/components/ConfigurationPanel';
 import { AddSection } from '@/components/AddSectionPanel';
 import { DownloadOptions } from '@/components/DownloadOptions';
 import { ShareOptions } from '@/components/ShareOptions';
+import { GlobalStylePanel } from '@/components/GlobalStylePanel';
 import { CVData, ThemeType } from '@/lib/types';
 import { downloadJSON, readJSONFile } from '@/lib/utils';
 import { 
@@ -165,6 +166,7 @@ export function Sidebar({ data, onChange }: SidebarProps) {
           </Accordion>
 
           <div className="space-y-4 py-4">
+            <GlobalStylePanel />
             <div className="space-y-3 bg-white/80 backdrop-blur-sm p-4 rounded-lg border shadow-sm">
               <DownloadOptions cvData={data} />
             </div>

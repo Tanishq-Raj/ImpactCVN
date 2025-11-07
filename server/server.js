@@ -115,7 +115,7 @@ app.get('/api/resumes/:userId', async (req, res) => {
   }
 });
 
-// Update a resume
+// Update a resume (legacy endpoint)
 app.put('/api/resume/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -134,6 +134,59 @@ app.put('/api/resume/:id', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Update a resume (new endpoint for autosave)
+app.put('/api/resumes/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { data, lastModified } = req.body;
+    
+    // Extract theme from data if present
+    const theme = data?.activeTheme || 'modern';
+    const title = data?.basicInfo?.name || 'Untitled Resume';
+    
+    const result = await db.query(
+      'UPDATE resumes SET title = $1, theme = $2, data = $3, updated_at = CURRENT_TIMESTAMP WHERE id = $4 RETURNING *',
+      [title, theme, JSON.stringify(data), id]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Resume not found' });
+    }
+    
+    res.json({ 
+      success: true, 
+      resume: result.rows[0],
+      message: 'Resume saved successfully'
+    });
+  } catch (err) {
+    console.error('Error updating resume:', err);
+    res.status(500).json({ error: 'Server error', details: err.message });
+  }
+});
+
+// Get resume by ID (new endpoint for loading)
+app.get('/api/resumes/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await db.query('SELECT * FROM resumes WHERE id = $1', [id]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Resume not found' });
+    }
+    
+    const resume = result.rows[0];
+    // Parse data if it's a string
+    if (typeof resume.data === 'string') {
+      resume.data = JSON.parse(resume.data);
+    }
+    
+    res.json(resume);
+  } catch (err) {
+    console.error('Error fetching resume:', err);
+    res.status(500).json({ error: 'Server error', details: err.message });
   }
 });
 

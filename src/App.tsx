@@ -1,6 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useParams, useNavigate } from 'react-router-dom';
 import { Sidebar } from '@/components/Sidebar';
 import { Preview } from '@/components/Preview';
+import { PreviewEnhanced } from '@/components/PreviewEnhanced';
+import { StyleCustomizationPanel } from '@/components/StyleCustomizationPanel';
+import { ResumeProvider, useResume } from '@/contexts/ResumeContext';
 import { CVData } from '@/lib/types';
 import { defaultCVData } from '@/lib/defaultData';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -11,64 +15,31 @@ import { Toaster } from 'sonner';
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Button } from '@/components/ui/button';
 import { Undo2, Redo2 } from 'lucide-react';
+import DashboardPage from '@/pages/DashboardPage';
 
 function App() {
-  const [cvData, setCVData] = useState<CVData>(defaultCVData);
-  const [activeTab, setActiveTab] = useState<string>('edit');
-  const [history, setHistory] = useState<CVData[]>([]);
-  const [historyIndex, setHistoryIndex] = useState<number>(-1);
+  return (
+    <Router>
+      <TooltipProvider>
+        <ToasterProvider />
+        <Toaster position="top-right" richColors />
+        <Routes>
+          <Route path="/" element={<DashboardPage />} />
+          <Route path="/editor/:id" element={<EditorView />} />
+          <Route path="/preview/:id" element={<PreviewView />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </TooltipProvider>
+    </Router>
+  );
+}
+
+function EditorViewContent() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { cvData, updateCVData, undo, redo, canUndo, canRedo } = useResume();
+  const [activeTab, setActiveTab] = useState("edit");
   const isMobile = useIsMobile();
-
-  // Try to load saved state from localStorage
-  useEffect(() => {
-    const savedData = localStorage.getItem('cv-data');
-    if (savedData) {
-      try {
-        const parsedData = JSON.parse(savedData);
-        setCVData(parsedData);
-        setHistory([parsedData]);
-        setHistoryIndex(0);
-      } catch (e) {
-        console.error('Failed to parse saved CV data', e);
-      }
-    } else {
-      setHistory([defaultCVData]);
-      setHistoryIndex(0);
-    }
-  }, []);
-
-  // Handle undo functionality
-  const handleUndo = useCallback(() => {
-    if (historyIndex > 0) {
-      const newIndex = historyIndex - 1;
-      setCVData(history[newIndex]);
-      setHistoryIndex(newIndex);
-    }
-  }, [history, historyIndex]);
-
-  // Handle redo functionality
-  const handleRedo = useCallback(() => {
-    if (historyIndex < history.length - 1) {
-      const newIndex = historyIndex + 1;
-      setCVData(history[newIndex]);
-      setHistoryIndex(newIndex);
-    }
-  }, [history, historyIndex]);
-
-  // Custom setCVData function that also updates history
-  const updateCVData = useCallback((newData: CVData) => {
-    setCVData(newData);
-    
-    // Remove any future history if we're not at the end
-    const newHistory = history.slice(0, historyIndex + 1);
-    
-    // Add the new state to history
-    setHistory([...newHistory, newData]);
-    setHistoryIndex(historyIndex + 1);
-    
-    // Save to localStorage
-    localStorage.setItem('cv-data', JSON.stringify(newData));
-  }, [history, historyIndex]);
 
   if (isMobile) {
     return (
@@ -84,8 +55,16 @@ function App() {
                   <Button 
                     variant="outline" 
                     size="icon" 
-                    onClick={handleUndo} 
-                    disabled={historyIndex <= 0}
+                    onClick={() => navigate('/')}
+                    title="Back to Dashboard"
+                  >
+                    ←
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="icon" 
+                    onClick={undo} 
+                    disabled={!canUndo}
                     title="Undo"
                   >
                     <Undo2 className="h-4 w-4" />
@@ -93,8 +72,8 @@ function App() {
                   <Button 
                     variant="outline" 
                     size="icon" 
-                    onClick={handleRedo} 
-                    disabled={historyIndex >= history.length - 1}
+                    onClick={redo} 
+                    disabled={!canRedo}
                     title="Redo"
                   >
                     <Redo2 className="h-4 w-4" />
@@ -112,7 +91,7 @@ function App() {
             </TabsContent>
             
             <TabsContent value="preview" className="mt-0 p-4 h-[calc(100vh-125px)] overflow-auto animate-fade-in">
-              <Preview data={cvData} />
+              <PreviewEnhanced />
             </TabsContent>
           </Tabs>
         </div>
@@ -131,8 +110,18 @@ function App() {
               <Button 
                 variant="outline" 
                 size="sm" 
-                onClick={handleUndo} 
-                disabled={historyIndex <= 0}
+                onClick={() => navigate('/')}
+                className="flex items-center gap-1 mr-auto"
+                title="Back to Dashboard"
+              >
+                <span>← Dashboard</span>
+              </Button>
+              <StyleCustomizationPanel />
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={undo} 
+                disabled={!canUndo}
                 className="flex items-center gap-1"
                 title="Undo"
               >
@@ -142,8 +131,8 @@ function App() {
               <Button 
                 variant="outline" 
                 size="sm" 
-                onClick={handleRedo} 
-                disabled={historyIndex >= history.length - 1}
+                onClick={redo} 
+                disabled={!canRedo}
                 className="flex items-center gap-1"
                 title="Redo"
               >
@@ -160,7 +149,7 @@ function App() {
               
               <ResizablePanel defaultSize={70} className="transition-all">
                 <div className="h-full bg-gray-50/80 backdrop-blur-sm flex items-center justify-center p-8 overflow-auto">
-                  <Preview data={cvData} />
+                  <PreviewEnhanced />
                 </div>
               </ResizablePanel>
             </ResizablePanelGroup>
@@ -168,6 +157,160 @@ function App() {
         </div>
       </div>
     </TooltipProvider>
+  );
+}
+
+function EditorView() {
+  const { id } = useParams();
+  const [initialData, setInitialData] = useState<CVData>(defaultCVData);
+  const [loading, setLoading] = useState(true);
+  
+  // Load resume data from backend API
+  useEffect(() => {
+    const loadResume = async () => {
+      if (id) {
+        try {
+          const response = await fetch(`/api/resumes/${id}`);
+          if (response.ok) {
+            const resume = await response.json();
+            // Parse data if it's a string
+            const data = typeof resume.data === 'string' 
+              ? JSON.parse(resume.data) 
+              : resume.data;
+            setInitialData(data);
+          } else {
+            console.error('Failed to load resume from API');
+            // Fallback to localStorage
+            const savedResumes = localStorage.getItem('resumes');
+            if (savedResumes) {
+              const resumes = JSON.parse(savedResumes);
+              const resume = resumes.find((r: any) => r.id === id);
+              if (resume) {
+                setInitialData(resume.data);
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error loading resume:', error);
+          // Fallback to localStorage
+          const savedResumes = localStorage.getItem('resumes');
+          if (savedResumes) {
+            const resumes = JSON.parse(savedResumes);
+            const resume = resumes.find((r: any) => r.id === id);
+            if (resume) {
+              setInitialData(resume.data);
+            }
+          }
+        }
+      }
+      setLoading(false);
+    };
+
+    loadResume();
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-violet-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading resume...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <ResumeProvider initialData={initialData} resumeId={id}>
+      <EditorViewContent />
+    </ResumeProvider>
+  );
+}
+
+function PreviewView() {
+  const { id } = useParams();
+  const [initialData, setInitialData] = useState<CVData>(defaultCVData);
+  const [loading, setLoading] = useState(true);
+  
+  // Load resume data from backend API
+  useEffect(() => {
+    const loadResume = async () => {
+      if (id) {
+        try {
+          const response = await fetch(`/api/resumes/${id}`);
+          if (response.ok) {
+            const resume = await response.json();
+            const data = typeof resume.data === 'string' 
+              ? JSON.parse(resume.data) 
+              : resume.data;
+            setInitialData(data);
+          } else {
+            // Fallback to localStorage
+            const savedResumes = localStorage.getItem('resumes');
+            if (savedResumes) {
+              const resumes = JSON.parse(savedResumes);
+              const resume = resumes.find((r: any) => r.id === id);
+              if (resume) {
+                setInitialData(resume.data);
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error loading resume:', error);
+          // Fallback to localStorage
+          const savedResumes = localStorage.getItem('resumes');
+          if (savedResumes) {
+            const resumes = JSON.parse(savedResumes);
+            const resume = resumes.find((r: any) => r.id === id);
+            if (resume) {
+              setInitialData(resume.data);
+            }
+          }
+        }
+      }
+      setLoading(false);
+    };
+
+    loadResume();
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-violet-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading resume...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  return (
+    <ResumeProvider initialData={initialData} resumeId={id}>
+      <div className="min-h-screen bg-gradient-to-br from-violet-50 to-indigo-100 animate-fade-in">
+        <div className="container mx-auto py-6 px-4">
+          <div className="bg-white/40 backdrop-blur-md rounded-xl border shadow-lg overflow-hidden transition-all hover:shadow-xl p-8">
+            <div className="flex justify-between items-center mb-6">
+              <Button 
+                variant="outline"
+                onClick={() => window.history.back()}
+              >
+                Back to Dashboard
+              </Button>
+              <Button 
+                variant="default"
+                onClick={() => window.print()}
+              >
+                Download PDF
+              </Button>
+            </div>
+            <div className="flex items-center justify-center">
+              <PreviewEnhanced />
+            </div>
+          </div>
+        </div>
+      </div>
+    </ResumeProvider>
   );
 }
 

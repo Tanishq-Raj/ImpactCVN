@@ -122,5 +122,33 @@ export const defaultCVData: CVData = {
       projects: 'Projects'
     },
     order: ['summary', 'experiences', 'education', 'skills', 'projects']
+  },
+  customStyles: {
+    typography: {
+      fontFamily: 'Inter',
+      fontSize: {
+        base: 14,
+        heading: 24,
+        subheading: 18
+      },
+      fontWeight: {
+        normal: 400,
+        medium: 500,
+        bold: 700
+      }
+    },
+    colors: {
+      primary: '#3b82f6',
+      secondary: '#64748b',
+      accent: '#8b5cf6',
+      background: '#ffffff',
+      text: '#1e293b',
+      textSecondary: '#64748b'
+    },
+    layout: {
+      sectionSpacing: 24,
+      padding: 32,
+      borderRadius: 8
+    }
   }
 };
