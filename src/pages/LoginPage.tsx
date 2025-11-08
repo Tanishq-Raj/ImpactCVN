@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { FileText, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { getApiUrl } from '@/utils/api';
 
 interface LoginFormState {
   email: string;
@@ -64,7 +65,7 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/users/login', {
+      const response = await fetch(getApiUrl('/api/users/login'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

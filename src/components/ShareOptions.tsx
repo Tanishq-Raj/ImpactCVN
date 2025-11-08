@@ -22,7 +22,8 @@ export function ShareOptions({ cvData }: ShareOptionsProps) {
       const shareId = Math.random().toString(36).substring(2, 15);
       
       // Send the resume data to the server to create a public share
-      const response = await fetch('/api/share-resume', {
+      const API_URL = import.meta.env.VITE_API_URL || '';
+      const response = await fetch(`${API_URL}/api/share-resume`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
