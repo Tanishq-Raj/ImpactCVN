@@ -34,14 +34,18 @@ import { useMemo } from "react";
 
 interface PreviewEnhancedProps {
   data?: CVData;
+  readOnly?: boolean;
 }
+
+
 
 interface SortableSectionProps {
   id: string;
   children: React.ReactNode;
+  readOnly?: boolean;
 }
 
-function SortableSection({ id, children }: SortableSectionProps) {
+function SortableSection({ id, children, readOnly = false }: SortableSectionProps) {
   const {
     attributes,
     listeners,
@@ -49,7 +53,7 @@ function SortableSection({ id, children }: SortableSectionProps) {
     transform,
     transition,
     isDragging,
-  } = useSortable({ id });
+  } = useSortable({ id, disabled: readOnly });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -59,23 +63,25 @@ function SortableSection({ id, children }: SortableSectionProps) {
 
   return (
     <div ref={setNodeRef} style={style} className="relative group">
-      <div
-        {...attributes}
-        {...listeners}
-        className="absolute -left-8 top-2 opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing transition-opacity"
-      >
-        <GripVertical className="h-5 w-5 text-gray-400" />
-      </div>
+      {!readOnly && (
+        <div
+          {...attributes}
+          {...listeners}
+          className="absolute -left-8 top-2 opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing transition-opacity"
+        >
+          <GripVertical className="h-5 w-5 text-gray-400" />
+        </div>
+      )}
       {children}
     </div>
   );
 }
 
-export function PreviewEnhanced({ data: propData }: PreviewEnhancedProps) {
+export function PreviewEnhanced({ data: propData, readOnly = false }: PreviewEnhancedProps) {
   const contextData = useResume();
   const data = propData || contextData?.cvData;
-  const updateField = contextData?.updateField;
-  const updateCVData = contextData?.updateCVData;
+  const updateField = readOnly ? undefined : contextData?.updateField;
+  const updateCVData = readOnly ? undefined : contextData?.updateCVData;
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -138,6 +144,8 @@ export function PreviewEnhanced({ data: propData }: PreviewEnhancedProps) {
   ];
 
   const handleDragEnd = (event: DragEndEvent) => {
+    if (readOnly) return; // Disable drag in read-only mode
+    
     const { active, over } = event;
 
     if (over && active.id !== over.id) {
@@ -681,7 +689,7 @@ export function PreviewEnhanced({ data: propData }: PreviewEnhancedProps) {
             if (!renderSection) return null;
             
             return (
-              <SortableSection key={sectionKey} id={sectionKey}>
+              <SortableSection key={sectionKey} id={sectionKey} readOnly={readOnly}>
                 {renderSection()}
               </SortableSection>
             );

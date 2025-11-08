@@ -93,7 +93,7 @@ export default function SharedResumePage() {
               </Button>
             </div>
             <div className="flex items-center justify-center">
-              <PreviewEnhanced />
+              <PreviewEnhanced readOnly={true} />
             </div>
           </div>
         </div>

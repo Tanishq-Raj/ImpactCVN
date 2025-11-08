@@ -3,11 +3,12 @@ import { Check, X } from 'lucide-react';
 
 interface InlineEditableTextProps {
   value: string;
-  onChange: (value: string) => void;
+  onChange?: (value: string) => void;
   className?: string;
   as?: 'span' | 'h1' | 'h2' | 'h3' | 'h4' | 'p' | 'div';
   multiline?: boolean;
   placeholder?: string;
+  style?: React.CSSProperties;
 }
 
 export function InlineEditableText({
@@ -16,12 +17,14 @@ export function InlineEditableText({
   className = '',
   as: Component = 'span',
   multiline = false,
-  placeholder = 'Click to edit'
+  placeholder = 'Click to edit',
+  style
 }: InlineEditableTextProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
   const contentRef = useRef<HTMLElement>(null);
+  const isReadOnly = !onChange;
 
   useEffect(() => {
     setEditValue(value);
@@ -35,7 +38,7 @@ export function InlineEditableText({
   }, [isEditing]);
 
   const handleSave = () => {
-    if (editValue.trim() !== value) {
+    if (onChange && editValue.trim() !== value) {
       onChange(editValue.trim());
     }
     setIsEditing(false);
@@ -55,7 +58,7 @@ export function InlineEditableText({
     }
   };
 
-  if (isEditing) {
+  if (isEditing && !isReadOnly) {
     return (
       <div className="inline-flex items-center gap-2 w-full">
         {multiline ? (
@@ -100,14 +103,17 @@ export function InlineEditableText({
   return (
     <Component
       ref={contentRef as any}
-      className={`${className} group relative cursor-pointer hover:bg-blue-50/50 transition-colors rounded px-1 -mx-1`}
-      onClick={() => setIsEditing(true)}
-      title="Click to edit"
+      className={`${className} ${!isReadOnly ? 'group relative cursor-pointer hover:bg-blue-50/50 transition-colors rounded px-1 -mx-1' : ''}`}
+      onClick={() => !isReadOnly && setIsEditing(true)}
+      title={!isReadOnly ? "Click to edit" : undefined}
+      style={style}
     >
       {value || <span className="text-gray-400 italic">{placeholder}</span>}
-      <span className="absolute -right-5 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity text-blue-500 text-xs">
-        ✎
-      </span>
+      {!isReadOnly && (
+        <span className="absolute -right-5 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity text-blue-500 text-xs">
+          ✎
+        </span>
+      )}
     </Component>
   );
 }
