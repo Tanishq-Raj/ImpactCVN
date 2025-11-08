@@ -3,10 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
-import { Plus, Search, FileText, Edit2 } from 'lucide-react';
+import { Plus, Search, FileText, Edit2, LogOut } from 'lucide-react';
 import { defaultCVData } from '@/lib/defaultData';
 import { CVData } from '@/lib/types';
 import { v4 as uuidv4 } from 'uuid';
+import { getUser, logout } from '@/utils/auth';
+import { toast } from 'sonner';
 
 interface Resume {
   id: string;
@@ -21,6 +23,7 @@ export default function DashboardPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
+  const user = getUser();
 
   useEffect(() => {
     // In a real app, this would fetch from an API
@@ -65,6 +68,12 @@ export default function DashboardPage() {
     setEditingId(null);
   };
 
+  const handleLogout = () => {
+    logout();
+    toast.success('Logged out successfully');
+    navigate('/');
+  };
+
   const filteredResumes = resumes.filter(resume => 
     resume.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -73,9 +82,22 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-gradient-to-br from-violet-50 to-indigo-100 animate-fade-in">
       <div className="container mx-auto py-8 px-4">
         <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold mb-2">Impact CV</h1>
-            <p className="text-gray-600">My Resume : Create, manage, and customize your professional resumes</p>
+          {/* Header with user greeting and logout */}
+          <div className="flex justify-between items-center mb-8">
+            <div>
+              <h1 className="text-3xl font-bold mb-2">
+                Welcome back, {user?.name || 'User'}! 👋
+              </h1>
+              <p className="text-gray-600">Create, manage, and customize your professional resumes</p>
+            </div>
+            <Button 
+              variant="outline" 
+              onClick={handleLogout}
+              className="flex items-center gap-2"
+            >
+              <LogOut className="h-4 w-4" />
+              Logout
+            </Button>
           </div>
 
           <div className="flex justify-between items-center mb-6">

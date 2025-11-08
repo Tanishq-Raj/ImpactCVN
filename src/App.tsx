@@ -15,7 +15,35 @@ import { Toaster } from 'sonner';
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Button } from '@/components/ui/button';
 import { Undo2, Redo2 } from 'lucide-react';
+import HomePage from '@/pages/HomePage';
+import LoginPage from '@/pages/LoginPage';
+import SignupPage from '@/pages/SignupPage';
 import DashboardPage from '@/pages/DashboardPage';
+import SharedResumePage from '@/pages/SharedResumePage';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import { isAuthenticated } from '@/utils/auth';
+
+// Wrapper components for redirecting authenticated users
+function HomePageWrapper() {
+  if (isAuthenticated()) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return <HomePage />;
+}
+
+function LoginPageWrapper() {
+  if (isAuthenticated()) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return <LoginPage />;
+}
+
+function SignupPageWrapper() {
+  if (isAuthenticated()) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return <SignupPage />;
+}
 
 function App() {
   return (
@@ -24,9 +52,34 @@ function App() {
         <ToasterProvider />
         <Toaster position="top-right" richColors />
         <Routes>
-          <Route path="/" element={<DashboardPage />} />
-          <Route path="/editor/:id" element={<EditorView />} />
-          <Route path="/preview/:id" element={<PreviewView />} />
+          <Route path="/" element={<HomePageWrapper />} />
+          <Route path="/login" element={<LoginPageWrapper />} />
+          <Route path="/signup" element={<SignupPageWrapper />} />
+          <Route 
+            path="/dashboard" 
+            element={
+              <ProtectedRoute>
+                <DashboardPage />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/editor/:id" 
+            element={
+              <ProtectedRoute>
+                <EditorView />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/preview/:id" 
+            element={
+              <ProtectedRoute>
+                <PreviewView />
+              </ProtectedRoute>
+            } 
+          />
+          <Route path="/share/:shareId" element={<SharedResumePage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </TooltipProvider>
@@ -55,7 +108,7 @@ function EditorViewContent() {
                   <Button 
                     variant="outline" 
                     size="icon" 
-                    onClick={() => navigate('/')}
+                    onClick={() => navigate('/dashboard')}
                     title="Back to Dashboard"
                   >
                     ←
@@ -110,7 +163,7 @@ function EditorViewContent() {
               <Button 
                 variant="outline" 
                 size="sm" 
-                onClick={() => navigate('/')}
+                onClick={() => navigate('/dashboard')}
                 className="flex items-center gap-1 mr-auto"
                 title="Back to Dashboard"
               >

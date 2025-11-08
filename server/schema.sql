@@ -4,10 +4,15 @@
 -- Users table to store authentication info
 CREATE TABLE IF NOT EXISTS users (
   id SERIAL PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
   email VARCHAR(255) UNIQUE NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Add index for email lookups
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 
 -- Resumes table to store resume data
 CREATE TABLE IF NOT EXISTS resumes (

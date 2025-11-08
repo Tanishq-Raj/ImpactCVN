@@ -6,11 +6,14 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import multer from 'multer';
-
-dotenv.config();
+import authRoutes from './routes/auth.js';
+import authMiddleware from './middleware/auth.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Load .env from parent directory (project root)
+dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
 // Create uploads directory if it doesn't exist
 const uploadsDir = path.join(__dirname, 'uploads');
@@ -39,6 +42,56 @@ app.use(express.json());
 
 // Serve static files from uploads directory
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Authentication routes (public)
+app.use('/api/users', authRoutes);
+
+// Resume sharing endpoint (public)
+app.post('/api/share-resume', async (req, res) => {
+  try {
+    const { shareId, resumeData } = req.body;
+    
+    if (!shareId || !resumeData) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+    
+    // Store the shared resume in the database
+    await db.query(
+      'INSERT INTO shared_resumes (share_id, data, created_at) VALUES ($1, $2, CURRENT_TIMESTAMP) ON CONFLICT (share_id) DO UPDATE SET data = $2, created_at = CURRENT_TIMESTAMP',
+      [shareId, JSON.stringify(resumeData)]
+    );
+    
+    res.json({ success: true, shareId });
+  } catch (err) {
+    console.error('Error sharing resume:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Get shared resume by ID (public)
+app.get('/api/share-resume/:shareId', async (req, res) => {
+  try {
+    const { shareId } = req.params;
+    
+    const result = await db.query(
+      'SELECT data FROM shared_resumes WHERE share_id = $1',
+      [shareId]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Shared resume not found' });
+    }
+    
+    const resumeData = typeof result.rows[0].data === 'string' 
+      ? JSON.parse(result.rows[0].data) 
+      : result.rows[0].data;
+    
+    res.json({ data: resumeData });
+  } catch (err) {
+    console.error('Error retrieving shared resume:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
 // PDF sharing endpoint
 app.post('/api/share-pdf', upload.single('pdf'), async (req, res) => {
@@ -87,9 +140,9 @@ app.get('/api/shared-pdf/:shareId', async (req, res) => {
   }
 });
 
-// Routes for resumes
+// Routes for resumes (protected with authentication)
 // Get specific resume by ID - must be defined before the userId route to avoid path conflicts
-app.get('/api/resume/:id', async (req, res) => {
+app.get('/api/resume/:id', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
     const result = await db.query('SELECT * FROM resumes WHERE id = $1', [id]);
@@ -103,11 +156,11 @@ app.get('/api/resume/:id', async (req, res) => {
   }
 });
 
-// Get all resumes for a user
-app.get('/api/resumes/:userId', async (req, res) => {
+// Get all resumes for authenticated user
+app.get('/api/resumes', authMiddleware, async (req, res) => {
   try {
-    const { userId } = req.params;
-    const result = await db.query('SELECT * FROM resumes WHERE user_id = $1', [userId]);
+    const userId = req.user.userId;
+    const result = await db.query('SELECT * FROM resumes WHERE user_id = $1 ORDER BY updated_at DESC', [userId]);
     res.json(result.rows);
   } catch (err) {
     console.error(err);
@@ -116,7 +169,7 @@ app.get('/api/resumes/:userId', async (req, res) => {
 });
 
 // Update a resume (legacy endpoint)
-app.put('/api/resume/:id', async (req, res) => {
+app.put('/api/resume/:id', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
     const { title, theme, data } = req.body;
@@ -138,7 +191,7 @@ app.put('/api/resume/:id', async (req, res) => {
 });
 
 // Update a resume (new endpoint for autosave)
-app.put('/api/resumes/:id', async (req, res) => {
+app.put('/api/resumes/:id', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
     const { data, lastModified } = req.body;
@@ -168,7 +221,7 @@ app.put('/api/resumes/:id', async (req, res) => {
 });
 
 // Get resume by ID (new endpoint for loading)
-app.get('/api/resumes/:id', async (req, res) => {
+app.get('/api/resumes/:id', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
     const result = await db.query('SELECT * FROM resumes WHERE id = $1', [id]);
@@ -191,7 +244,7 @@ app.get('/api/resumes/:id', async (req, res) => {
 });
 
 // Delete a resume
-app.delete('/api/resume/:id', async (req, res) => {
+app.delete('/api/resume/:id', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
     
@@ -209,12 +262,13 @@ app.delete('/api/resume/:id', async (req, res) => {
 });
 
 // Create a new resume
-app.post('/api/resumes', async (req, res) => {
+app.post('/api/resumes', authMiddleware, async (req, res) => {
   try {
-    const { user_id, title, content } = req.body;
+    const userId = req.user.userId;
+    const { title, content } = req.body;
     const result = await db.query(
       'INSERT INTO resumes (user_id, title, theme, data) VALUES ($1, $2, $3, $4) RETURNING *',
-      [user_id, title, 'modern', JSON.stringify(content)]
+      [userId, title || 'Untitled Resume', 'modern', JSON.stringify(content)]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
