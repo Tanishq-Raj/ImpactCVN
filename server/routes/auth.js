@@ -1,5 +1,5 @@
 import express from 'express';
-import db from '../db.js';
+import prisma from '../prisma.js';
 import { hashPassword, comparePassword } from '../utils/password.js';
 import { generateToken } from '../utils/jwt.js';
 
@@ -47,12 +47,11 @@ router.post('/register', async (req, res) => {
     }
 
     // Check if email already exists
-    const existingUser = await db.query(
-      'SELECT id FROM users WHERE email = $1',
-      [email.toLowerCase().trim()]
-    );
+    const existingUser = await prisma.user.findUnique({
+      where: { email: email.toLowerCase().trim() }
+    });
 
-    if (existingUser.rows.length > 0) {
+    if (existingUser) {
       return res.status(400).json({
         error: 'Registration error',
         message: 'Email already registered'
@@ -63,12 +62,19 @@ router.post('/register', async (req, res) => {
     const passwordHash = await hashPassword(password);
 
     // Insert new user
-    const result = await db.query(
-      'INSERT INTO users (name, email, password_hash, created_at, updated_at) VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING id, name, email, created_at',
-      [name.trim(), email.toLowerCase().trim(), passwordHash]
-    );
-
-    const newUser = result.rows[0];
+    const newUser = await prisma.user.create({
+      data: {
+        name: name.trim(),
+        email: email.toLowerCase().trim(),
+        passwordHash
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        createdAt: true
+      }
+    });
 
     res.status(201).json({
       message: 'Account created successfully',
@@ -76,9 +82,12 @@ router.post('/register', async (req, res) => {
     });
   } catch (error) {
     console.error('Registration error:', error);
+    console.error('Error details:', error.message);
+    console.error('Error stack:', error.stack);
     res.status(500).json({
       error: 'Server error',
-      message: 'An error occurred during registration'
+      message: 'An error occurred during registration',
+      details: error.message
     });
   }
 });
@@ -100,22 +109,25 @@ router.post('/login', async (req, res) => {
     }
 
     // Find user by email
-    const result = await db.query(
-      'SELECT id, name, email, password_hash FROM users WHERE email = $1',
-      [email.toLowerCase().trim()]
-    );
+    const user = await prisma.user.findUnique({
+      where: { email: email.toLowerCase().trim() },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        passwordHash: true
+      }
+    });
 
-    if (result.rows.length === 0) {
+    if (!user) {
       return res.status(401).json({
         error: 'Authentication error',
         message: 'Invalid credentials'
       });
     }
 
-    const user = result.rows[0];
-
     // Compare password
-    const isPasswordValid = await comparePassword(password, user.password_hash);
+    const isPasswordValid = await comparePassword(password, user.passwordHash);
 
     if (!isPasswordValid) {
       return res.status(401).json({

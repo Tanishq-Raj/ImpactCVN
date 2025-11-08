@@ -1,0 +1,47 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           Int       @id @default(autoincrement())
+  name         String    @db.VarChar(255)
+  email        String    @unique @db.VarChar(255)
+  passwordHash String    @map("password_hash") @db.VarChar(255)
+  createdAt    DateTime? @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt    DateTime? @default(now()) @map("updated_at") @db.Timestamp(6)
+  
+  resumes      Resume[]
+
+  @@index([email], map: "idx_users_email")
+  @@map("users")
+}
+
+model Resume {
+  id        Int       @id @default(autoincrement())
+  userId    Int?      @map("user_id")
+  title     String    @db.VarChar(255)
+  theme     String    @db.VarChar(100)
+  data      Json
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt DateTime? @default(now()) @map("updated_at") @db.Timestamp(6)
+  
+  user      User?     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([userId], map: "idx_resumes_user_id")
+  @@map("resumes")
+}
+
+model SharedResume {
+  id        Int       @id @default(autoincrement())
+  shareId   String    @unique @map("share_id") @db.VarChar(255)
+  data      Json
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamp(6)
+
+  @@index([shareId], map: "idx_shared_resumes_share_id")
+  @@map("shared_resumes")
+}

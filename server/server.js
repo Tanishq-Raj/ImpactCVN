@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import db from './db.js';
+import prisma from './prisma.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -55,11 +55,15 @@ app.post('/api/share-resume', async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
     
-    // Store the shared resume in the database
-    await db.query(
-      'INSERT INTO shared_resumes (share_id, data, created_at) VALUES ($1, $2, CURRENT_TIMESTAMP) ON CONFLICT (share_id) DO UPDATE SET data = $2, created_at = CURRENT_TIMESTAMP',
-      [shareId, JSON.stringify(resumeData)]
-    );
+    // Store the shared resume in the database (upsert)
+    await prisma.sharedResume.upsert({
+      where: { shareId },
+      update: { data: resumeData },
+      create: {
+        shareId,
+        data: resumeData
+      }
+    });
     
     res.json({ success: true, shareId });
   } catch (err) {
@@ -73,20 +77,16 @@ app.get('/api/share-resume/:shareId', async (req, res) => {
   try {
     const { shareId } = req.params;
     
-    const result = await db.query(
-      'SELECT data FROM shared_resumes WHERE share_id = $1',
-      [shareId]
-    );
+    const sharedResume = await prisma.sharedResume.findUnique({
+      where: { shareId },
+      select: { data: true }
+    });
     
-    if (result.rows.length === 0) {
+    if (!sharedResume) {
       return res.status(404).json({ error: 'Shared resume not found' });
     }
     
-    const resumeData = typeof result.rows[0].data === 'string' 
-      ? JSON.parse(result.rows[0].data) 
-      : result.rows[0].data;
-    
-    res.json({ data: resumeData });
+    res.json({ data: sharedResume.data });
   } catch (err) {
     console.error('Error retrieving shared resume:', err);
     res.status(500).json({ error: 'Server error' });
@@ -145,11 +145,14 @@ app.get('/api/shared-pdf/:shareId', async (req, res) => {
 app.get('/api/resume/:id', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await db.query('SELECT * FROM resumes WHERE id = $1', [id]);
-    if (result.rows.length === 0) {
+    const resume = await prisma.resume.findUnique({
+      where: { id: parseInt(id) }
+    });
+    
+    if (!resume) {
       return res.status(404).json({ error: 'Resume not found' });
     }
-    res.json(result.rows[0]);
+    res.json(resume);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error' });
@@ -160,8 +163,11 @@ app.get('/api/resume/:id', authMiddleware, async (req, res) => {
 app.get('/api/resumes', authMiddleware, async (req, res) => {
   try {
     const userId = req.user.userId;
-    const result = await db.query('SELECT * FROM resumes WHERE user_id = $1 ORDER BY updated_at DESC', [userId]);
-    res.json(result.rows);
+    const resumes = await prisma.resume.findMany({
+      where: { userId },
+      orderBy: { updatedAt: 'desc' }
+    });
+    res.json(resumes);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error' });
@@ -174,17 +180,16 @@ app.put('/api/resume/:id', authMiddleware, async (req, res) => {
     const { id } = req.params;
     const { title, theme, data } = req.body;
     
-    const result = await db.query(
-      'UPDATE resumes SET title = $1, theme = $2, data = $3, updated_at = CURRENT_TIMESTAMP WHERE id = $4 RETURNING *',
-      [title, theme, data, id]
-    );
+    const resume = await prisma.resume.update({
+      where: { id: parseInt(id) },
+      data: { title, theme, data }
+    });
     
-    if (result.rows.length === 0) {
+    res.json(resume);
+  } catch (err) {
+    if (err.code === 'P2025') {
       return res.status(404).json({ error: 'Resume not found' });
     }
-    
-    res.json(result.rows[0]);
-  } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error' });
   }
@@ -200,21 +205,24 @@ app.put('/api/resumes/:id', authMiddleware, async (req, res) => {
     const theme = data?.activeTheme || 'modern';
     const title = data?.basicInfo?.name || 'Untitled Resume';
     
-    const result = await db.query(
-      'UPDATE resumes SET title = $1, theme = $2, data = $3, updated_at = CURRENT_TIMESTAMP WHERE id = $4 RETURNING *',
-      [title, theme, JSON.stringify(data), id]
-    );
-    
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Resume not found' });
-    }
+    const resume = await prisma.resume.update({
+      where: { id: parseInt(id) },
+      data: {
+        title,
+        theme,
+        data
+      }
+    });
     
     res.json({ 
       success: true, 
-      resume: result.rows[0],
+      resume,
       message: 'Resume saved successfully'
     });
   } catch (err) {
+    if (err.code === 'P2025') {
+      return res.status(404).json({ error: 'Resume not found' });
+    }
     console.error('Error updating resume:', err);
     res.status(500).json({ error: 'Server error', details: err.message });
   }
@@ -224,16 +232,12 @@ app.put('/api/resumes/:id', authMiddleware, async (req, res) => {
 app.get('/api/resumes/:id', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await db.query('SELECT * FROM resumes WHERE id = $1', [id]);
+    const resume = await prisma.resume.findUnique({
+      where: { id: parseInt(id) }
+    });
     
-    if (result.rows.length === 0) {
+    if (!resume) {
       return res.status(404).json({ error: 'Resume not found' });
-    }
-    
-    const resume = result.rows[0];
-    // Parse data if it's a string
-    if (typeof resume.data === 'string') {
-      resume.data = JSON.parse(resume.data);
     }
     
     res.json(resume);
@@ -248,14 +252,15 @@ app.delete('/api/resume/:id', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
     
-    const result = await db.query('DELETE FROM resumes WHERE id = $1 RETURNING *', [id]);
-    
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Resume not found' });
-    }
+    await prisma.resume.delete({
+      where: { id: parseInt(id) }
+    });
     
     res.json({ message: 'Resume deleted successfully' });
   } catch (err) {
+    if (err.code === 'P2025') {
+      return res.status(404).json({ error: 'Resume not found' });
+    }
     console.error(err);
     res.status(500).json({ error: 'Server error' });
   }
@@ -266,11 +271,17 @@ app.post('/api/resumes', authMiddleware, async (req, res) => {
   try {
     const userId = req.user.userId;
     const { title, content } = req.body;
-    const result = await db.query(
-      'INSERT INTO resumes (user_id, title, theme, data) VALUES ($1, $2, $3, $4) RETURNING *',
-      [userId, title || 'Untitled Resume', 'modern', JSON.stringify(content)]
-    );
-    res.status(201).json(result.rows[0]);
+    
+    const resume = await prisma.resume.create({
+      data: {
+        userId,
+        title: title || 'Untitled Resume',
+        theme: 'modern',
+        data: content
+      }
+    });
+    
+    res.status(201).json(resume);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error' });
@@ -281,7 +292,7 @@ app.post('/api/resumes', authMiddleware, async (req, res) => {
 app.get('/api/health', async (req, res) => {
   try {
     // Test database connection
-    await db.query('SELECT NOW()');
+    await prisma.$queryRaw`SELECT NOW()`;
     res.json({ status: 'ok' });
   } catch (err) {
     console.error(err);
