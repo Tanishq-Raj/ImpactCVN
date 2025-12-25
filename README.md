@@ -131,7 +131,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 💬 Support
 
-- 📧 Email: support@impactcv.com
+- 📧 Email: tanishqraj0408@gmail.com
 - 🐛 Issues: [GitHub Issues](https://github.com/Tanishq-Raj/ImpactCVN/issues)
 
 ## 🙏 Acknowledgments
@@ -144,6 +144,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**Made with ❤️ by the ImpactCV Team**
+**Made with ❤️ by the Tanishq Raj**
 
 ⭐ Star us on GitHub — it helps!
